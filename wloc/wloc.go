@@ -6,6 +6,8 @@ import (
 	"crypto/tls"
 	"encoding/binary"
 	"fmt"
+	"github.com/gigaryte/apple-bssid-enumerator/constants"
+	"github.com/gigaryte/apple-bssid-enumerator/iterate"
 	pb "github.com/gigaryte/apple-bssid-enumerator/proto"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
@@ -14,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -23,6 +26,7 @@ const (
 )
 
 var (
+	mu      sync.Mutex
 	NBSSIDs int
 	Outfile = ""
 )
@@ -133,18 +137,30 @@ func (wl *Wloc) Query() {
 	}
 
 	for _, w := range wifi.Wifi {
+		bssid := padBSSID(w.GetBssid())
+		oui := bssid[:8]
 		lat := float64(w.Location.GetLat()) * math.Pow10(-8)
 		lon := float64(w.Location.GetLon()) * math.Pow10(-8)
+
+		if constants.Iterate {
+			mu.Lock()
+			if _, ok := iterate.BSSIDMap[oui]; !ok {
+				iterate.BSSIDMap[oui] = make(map[string]bool)
+			}
+			iterate.BSSIDMap[oui][bssid] = true
+			mu.Unlock()
+		}
+
 		if Outfile != "" {
 			f, err := os.OpenFile(Outfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 			if err != nil {
 				log.Fatal(err)
 			}
 			f.WriteString(fmt.Sprintf("%v %v %v,%v\n", time.Now().Unix(),
-				padBSSID(w.GetBssid()), lat, lon))
+				bssid, lat, lon))
 		} else {
 			fmt.Printf("%v %v %v,%v\n", time.Now().Unix(),
-				padBSSID(w.GetBssid()), lat, lon)
+				bssid, lat, lon)
 		}
 	}
 

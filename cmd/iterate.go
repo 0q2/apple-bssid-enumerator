@@ -5,7 +5,10 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/gigaryte/apple-bssid-enumerator/common"
 	"github.com/gigaryte/apple-bssid-enumerator/constants"
+	"github.com/gigaryte/apple-bssid-enumerator/iterate"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
 )
@@ -18,7 +21,15 @@ var iterateCmd = &cobra.Command{
 of IEEE OUIs, searching for portions of the space used for WiFi access points.`,
 
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("iterate called")
+		constants.Iterate = true
+		common.ReadOUIFile()
+		log.Debugln("Read", len(constants.OUIs), "OUIs")
+		common.InitOUIInfo()
+		common.RunQueries()
+		fmt.Println("foo")
+		for oui := range iterate.BSSIDMap {
+			fmt.Println(oui, len(iterate.BSSIDMap[oui]))
+		}
 	},
 }
 

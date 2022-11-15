@@ -16,6 +16,7 @@ var enumerateCmd = &cobra.Command{
 	Use:   "enumerate",
 	Short: "Scans a fixed number (specified by the user) of addresses in each OUI and quits",
 	Run: func(cmd *cobra.Command, args []string) {
+		constants.Enumerate = true
 		common.ReadOUIFile()
 		log.Debugln("Read", len(constants.OUIs), "OUIs")
 		common.InitOUIInfo()
@@ -32,7 +33,6 @@ func init() {
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
 	// enumerateCmd.PersistentFlags().String("foo", "", "A help for foo")
-	enumerateCmd.PersistentFlags().UintVarP(&constants.NPerOUI, "nPerOUI", "n", 2048, "Number of BSSIDs to search for each OUI")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:

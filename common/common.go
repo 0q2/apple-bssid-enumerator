@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"os"
 	"sync"
+	"time"
 )
 
 func ReadOUIFile() {
@@ -103,6 +104,7 @@ func consume(jobs chan []byte) {
 		wi.Query()
 	}
 
+	fmt.Println("Dying")
 }
 
 func RunQueries() {
@@ -152,5 +154,9 @@ func RunQueries() {
 			}
 		}
 	}
+
+	waitSeconds := 10
+	log.Infof("Waiting %v seconds for the workers to finish\n", waitSeconds)
+	time.Sleep(10 * time.Second)
 
 }

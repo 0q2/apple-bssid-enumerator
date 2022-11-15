@@ -10,6 +10,8 @@ var (
 	Finished       int64
 	NBSSIDs        int
 	SingleResponse bool
+	Enumerate      bool
+	Iterate        bool
 )
 
 const (
