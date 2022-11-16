@@ -3,17 +3,21 @@ package common
 import "C"
 import (
 	"bufio"
-	"fmt"
 	"github.com/gigaryte/apple-bssid-enumerator/constants"
 	"github.com/gigaryte/apple-bssid-enumerator/cperm"
 	pb "github.com/gigaryte/apple-bssid-enumerator/proto"
 	"github.com/gigaryte/apple-bssid-enumerator/wloc"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
+	"math"
 	"math/rand"
 	"os"
 	"sync"
 	"time"
+)
+
+var (
+	mu sync.Mutex
 )
 
 func ReadOUIFile() {
@@ -41,6 +45,8 @@ func InitOUIInfo() {
 
 	var wg sync.WaitGroup
 	ouiChan := make(chan string, len(constants.OUIs))
+	log.Debug("Initializing OUI info")
+	cperm.OUIInfos = make(map[string]cperm.OUIInfo)
 
 	//Fill ouiChan for consumers to take from it
 	for _, oui := range constants.OUIs {
@@ -51,16 +57,18 @@ func InitOUIInfo() {
 	for i := 0; i < constants.NWorkers; i++ {
 		wg.Add(1)
 		//Launch goroutine to init the OUIInfo
-		go func(ch chan string) {
+		go func(ch chan string, i int) {
+			defer wg.Done()
 			for oui := range ouiChan {
-				oi := &cperm.OUIInfo{
+				oi := cperm.OUIInfo{
 					OUI: oui,
 				}
 				oi.InitCPerm()
-				cperm.OUIInfos = append(cperm.OUIInfos, oi)
+				mu.Lock()
+				cperm.OUIInfos[oui] = oi
+				mu.Unlock()
 			}
-			wg.Done()
-		}(ouiChan)
+		}(ouiChan, i)
 	}
 
 	//Wait here till all the worker threads finish initializing the OUIInfos
@@ -96,34 +104,41 @@ func serialize(macs []string) []byte {
 	return out
 }
 
-func consume(jobs chan []byte) {
+func consume(jobs chan []byte, done chan bool) {
 
 	wi := wloc.InitWloc()
-	for j := range jobs {
-		wi.Message = j
-		wi.Query()
+	for {
+		select {
+		case j := <-jobs:
+			wi.Message = j
+			wi.Query()
+		case <-done:
+			log.Debugln("Received done signal from main thread; quitting")
+			return
+		}
 	}
-
-	fmt.Println("Dying")
 }
 
 func RunQueries() {
 
+	//used to indicate that we're done and the consumer should die
+	done := make(chan bool)
+	//Sends the query job as a byte slice to a consumer
 	jobs := make(chan []byte)
 
 	//Start NWorkers workers to do the querying
 	for i := 0; i < constants.NWorkers; i++ {
-		go consume(jobs)
+		go consume(jobs, done)
 	}
 
 	//Use this to know when we've exhausted all OUIs to query
-	constants.Total = int64(len(cperm.OUIInfos))
+	constants.Total = int64(len(constants.OUIs))
 
 	//Keeps the macs to run for the next query
 	var lookupMACs []string
 	for {
-		ouiIdx := rand.Intn(len(cperm.OUIInfos))
-		thisOUI := cperm.OUIInfos[ouiIdx]
+		ouiIdx := rand.Intn(len(constants.OUIs))
+		thisOUI := cperm.OUIInfos[constants.OUIs[ouiIdx]]
 
 		mac, ret := thisOUI.NextMAC()
 
@@ -132,9 +147,11 @@ func RunQueries() {
 			log.Debugf("Got PERM_END for %v\n", thisOUI.OUI)
 			thisOUI.CPermDestroy()
 			//remove from the slice
-			cperm.OUIInfos[ouiIdx] = cperm.OUIInfos[len(cperm.OUIInfos)-1]
-			cperm.OUIInfos = cperm.OUIInfos[:len(cperm.OUIInfos)-1]
-			constants.Finished++
+			constants.OUIs[ouiIdx] = constants.OUIs[len(constants.OUIs)-1]
+			constants.OUIs = constants.OUIs[:len(constants.OUIs)-1]
+			/*			cperm.OUIInfos[ouiIdx] = cperm.OUIInfos[len(cperm.OUIInfos)-1]
+						cperm.OUIInfos = cperm.OUIInfos[:len(cperm.OUIInfos)-1]
+			*/constants.Finished++
 
 			//If Finished == Total, this is the last network; all the others are done
 			if constants.Finished == constants.Total {
@@ -148,15 +165,38 @@ func RunQueries() {
 		} else {
 			lookupMACs = append(lookupMACs, mac)
 			if len(lookupMACs) == constants.NBSSIDs {
-				fmt.Println(lookupMACs)
 				jobs <- serialize(lookupMACs)
 				lookupMACs = []string{}
 			}
 		}
 	}
 
-	waitSeconds := 10
+	waitSeconds := 5
 	log.Infof("Waiting %v seconds for the workers to finish\n", waitSeconds)
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
+	for i := 0; i < constants.NWorkers; i++ {
+		done <- true
+	}
 
+}
+
+func DetermineNextOUIs() {
+
+	var nextRoundOUIs []string
+	//This is the number of BSSIDs we queried per OUI * the threshold fraction that we have to meet to
+	//progress to the next round
+	nHitsToProgress := int(math.Pow(2, float64(constants.NPerOUI)) * constants.Threshold)
+
+	for oui := range constants.BSSIDMap {
+		nOUIHits := len(constants.BSSIDMap[oui])
+		//There were enough hits for this one to progress to next level
+		if nOUIHits >= nHitsToProgress {
+			log.Debugf("%v: %v >= %v; progressing\n", oui, nOUIHits, nHitsToProgress)
+			nextRoundOUIs = append(nextRoundOUIs, oui)
+		} else {
+			log.Debugf("%v: %v < %v; not progressing\n", oui, nOUIHits, nHitsToProgress)
+		}
+	}
+
+	constants.OUIs = nextRoundOUIs
 }

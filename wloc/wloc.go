@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/gigaryte/apple-bssid-enumerator/constants"
-	"github.com/gigaryte/apple-bssid-enumerator/iterate"
 	pb "github.com/gigaryte/apple-bssid-enumerator/proto"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
@@ -28,7 +27,6 @@ const (
 var (
 	mu      sync.Mutex
 	NBSSIDs int
-	Outfile = ""
 )
 
 type Wloc struct {
@@ -144,15 +142,18 @@ func (wl *Wloc) Query() {
 
 		if constants.Iterate {
 			mu.Lock()
-			if _, ok := iterate.BSSIDMap[oui]; !ok {
-				iterate.BSSIDMap[oui] = make(map[string]bool)
+			if _, ok := constants.BSSIDMap[oui]; !ok {
+				constants.BSSIDMap[oui] = make(map[string]bool)
 			}
-			iterate.BSSIDMap[oui][bssid] = true
+			//Make sure it's a valid geo before adding it to the hit list
+			if lat != -180 && lon != -180 {
+				constants.BSSIDMap[oui][bssid] = true
+			}
 			mu.Unlock()
 		}
 
-		if Outfile != "" {
-			f, err := os.OpenFile(Outfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if constants.Outfile != "" {
+			f, err := os.OpenFile(constants.Outfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 			if err != nil {
 				log.Fatal(err)
 			}

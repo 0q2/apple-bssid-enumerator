@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	OUIInfos []*OUIInfo
+	OUIInfos = make(map[string]OUIInfo)
 )
 
 type OUIInfo struct {

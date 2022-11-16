@@ -4,6 +4,7 @@ var (
 	NPerOUI        uint
 	Threshold      float64
 	OUIFile        string
+	Outfile        string
 	OUIs           []string
 	NWorkers       int
 	Total          int64
@@ -12,6 +13,8 @@ var (
 	SingleResponse bool
 	Enumerate      bool
 	Iterate        bool
+	NIterations    int
+	BSSIDMap       = make(map[string]map[string]bool)
 )
 
 const (
