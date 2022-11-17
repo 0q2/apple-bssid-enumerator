@@ -46,7 +46,7 @@ func InitOUIInfo() {
 	var wg sync.WaitGroup
 	ouiChan := make(chan string, len(constants.OUIs))
 	log.Debug("Initializing OUI info")
-	cperm.OUIInfos = make(map[string]cperm.OUIInfo)
+	cperm.OUIInfos = []*cperm.OUIInfo{}
 
 	//Fill ouiChan for consumers to take from it
 	for _, oui := range constants.OUIs {
@@ -60,12 +60,12 @@ func InitOUIInfo() {
 		go func(ch chan string, i int) {
 			defer wg.Done()
 			for oui := range ouiChan {
-				oi := cperm.OUIInfo{
+				oi := &cperm.OUIInfo{
 					OUI: oui,
 				}
 				oi.InitCPerm()
 				mu.Lock()
-				cperm.OUIInfos[oui] = oi
+				cperm.OUIInfos = append(cperm.OUIInfos, oi)
 				mu.Unlock()
 			}
 		}(ouiChan, i)
@@ -74,6 +74,8 @@ func InitOUIInfo() {
 	//Wait here till all the worker threads finish initializing the OUIInfos
 	close(ouiChan)
 	wg.Wait()
+	log.Infof("At the end of InitOUIInfo, len(OUIs): %v, len(OUIInfos): %v\n",
+		len(constants.OUIs), len(cperm.OUIInfos))
 }
 
 func serialize(macs []string) []byte {
@@ -132,13 +134,13 @@ func RunQueries() {
 	}
 
 	//Use this to know when we've exhausted all OUIs to query
-	constants.Total = int64(len(constants.OUIs))
+	constants.Total = int64(len(cperm.OUIInfos))
 
 	//Keeps the macs to run for the next query
 	var lookupMACs []string
-	for {
-		ouiIdx := rand.Intn(len(constants.OUIs))
-		thisOUI := cperm.OUIInfos[constants.OUIs[ouiIdx]]
+	for len(cperm.OUIInfos) > 0 {
+		ouiIdx := rand.Intn(len(cperm.OUIInfos))
+		thisOUI := cperm.OUIInfos[ouiIdx]
 
 		mac, ret := thisOUI.NextMAC()
 
@@ -147,11 +149,9 @@ func RunQueries() {
 			log.Debugf("Got PERM_END for %v\n", thisOUI.OUI)
 			thisOUI.CPermDestroy()
 			//remove from the slice
-			constants.OUIs[ouiIdx] = constants.OUIs[len(constants.OUIs)-1]
-			constants.OUIs = constants.OUIs[:len(constants.OUIs)-1]
-			/*			cperm.OUIInfos[ouiIdx] = cperm.OUIInfos[len(cperm.OUIInfos)-1]
-						cperm.OUIInfos = cperm.OUIInfos[:len(cperm.OUIInfos)-1]
-			*/constants.Finished++
+			cperm.OUIInfos[ouiIdx] = cperm.OUIInfos[len(cperm.OUIInfos)-1]
+			cperm.OUIInfos = cperm.OUIInfos[:len(cperm.OUIInfos)-1]
+			constants.Finished++
 
 			//If Finished == Total, this is the last network; all the others are done
 			if constants.Finished == constants.Total {

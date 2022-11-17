@@ -77,6 +77,7 @@ func (wl *Wloc) SerializeHeader() {
 
 func (wl *Wloc) Query() {
 
+	var f *os.File
 	msgLen := uint16(len(wl.Message))
 	lenBuf := make([]byte, 2)
 	binary.BigEndian.PutUint16(lenBuf, msgLen)
@@ -134,6 +135,14 @@ func (wl *Wloc) Query() {
 		log.Fatal(err)
 	}
 
+	if constants.OUIFile != "" {
+		f, err = os.OpenFile(constants.Outfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		defer f.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	for _, w := range wifi.Wifi {
 		bssid := padBSSID(w.GetBssid())
 		oui := bssid[:8]
@@ -153,10 +162,6 @@ func (wl *Wloc) Query() {
 		}
 
 		if constants.Outfile != "" {
-			f, err := os.OpenFile(constants.Outfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-			if err != nil {
-				log.Fatal(err)
-			}
 			f.WriteString(fmt.Sprintf("%v %v %v,%v\n", time.Now().Unix(),
 				bssid, lat, lon))
 		} else {

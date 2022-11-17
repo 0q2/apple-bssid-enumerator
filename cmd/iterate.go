@@ -6,6 +6,7 @@ package cmd
 import (
 	"github.com/gigaryte/apple-bssid-enumerator/common"
 	"github.com/gigaryte/apple-bssid-enumerator/constants"
+	"github.com/gigaryte/apple-bssid-enumerator/cperm"
 	log "github.com/sirupsen/logrus"
 	"math"
 
@@ -27,12 +28,16 @@ of IEEE OUIs, searching for portions of the space used for WiFi access points.`,
 		//Do NIteration number of iterations
 		for i := 0; i < constants.NIterations; i++ {
 
-			if len(constants.OUIs) == 0 {
+			log.Infof("There are %v OUIs to probe\n", len(constants.OUIs))
+
+			common.InitOUIInfo()
+
+			log.Infof("len(cperm.OUIInfos) at check: %v\n", len(cperm.OUIInfos))
+			if len(cperm.OUIInfos) == 0 {
 				log.Infof("No OUIs remain to be probed; exiting\n")
 				break
 			}
 
-			common.InitOUIInfo()
 			log.Debugf("Running queries with %v BSSIDs per OUI", math.Pow(2, float64(constants.NPerOUI)))
 			common.RunQueries()
 			common.DetermineNextOUIs()
