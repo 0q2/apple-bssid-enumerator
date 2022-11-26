@@ -1,5 +1,10 @@
 package constants
 
+import (
+	log "github.com/sirupsen/logrus"
+	"os"
+)
+
 var (
 	NPerOUI        uint
 	Threshold      float64
@@ -15,9 +20,20 @@ var (
 	Iterate        bool
 	NIterations    int
 	BSSIDMap       = make(map[string]map[string]bool)
+	OutfilePtr     *os.File
 )
 
 const (
 	KEYLEN  = 16
 	PERMEND = -5
 )
+
+func init() {
+	var err error
+	if Outfile != "" {
+		OutfilePtr, err = os.OpenFile(Outfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+}
