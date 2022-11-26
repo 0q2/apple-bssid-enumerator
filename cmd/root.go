@@ -50,12 +50,23 @@ func initLogging() {
 	}
 }
 
+func initOutfile() {
+	var err error
+	if constants.Outfile != "" {
+		constants.OutfilePtr, err = os.OpenFile(constants.Outfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
 func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
 	cobra.OnInitialize(initLogging)
+	cobra.OnInitialize(initOutfile)
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
 	rootCmd.PersistentFlags().BoolVarP(&constants.SingleResponse, "single", "s", false, "Query WLOC for only single BSSID (no nearby)")
 	rootCmd.PersistentFlags().IntVarP(&constants.NBSSIDs, "nBSSIDs", "N", 100, "Number of BSSIDs to include in each request to WLOC")
