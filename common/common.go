@@ -20,10 +20,31 @@ var (
 	mu sync.Mutex
 )
 
+func ReadMACFile() {
+
+	if constants.OUIFile == "" {
+		log.Fatal("Error: -f/--infile is required")
+	}
+
+	f, err := os.Open(constants.OUIFile)
+	if err != nil {
+		log.Fatal("Error opening MAC file: ", err)
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		constants.MACs = append(constants.MACs, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+}
+
 func ReadOUIFile() {
 
 	if constants.OUIFile == "" {
-		log.Fatal("Error: -f/--OUIfile is required")
+		log.Fatal("Error: -f/--infile is required")
 	}
 
 	f, err := os.Open(constants.OUIFile)
@@ -119,6 +140,40 @@ func consume(jobs chan []byte, done chan bool) {
 			return
 		}
 	}
+}
+
+func RunMACQueries() {
+	//used to indicate that we're done and the consumer should die
+	done := make(chan bool)
+	//Sends the query job as a byte slice to a consumer
+	jobs := make(chan []byte)
+
+	//Start NWorkers workers to do the querying
+	for i := 0; i < constants.NWorkers; i++ {
+		go consume(jobs, done)
+	}
+
+	var lookupMACs []string
+	for len(constants.MACs) > constants.NBSSIDs {
+
+		lookupMACs = constants.MACs[:constants.NBSSIDs]
+		jobs <- serialize(lookupMACs)
+		constants.MACs = constants.MACs[constants.NBSSIDs:]
+	}
+
+	//Do the remaining MACs
+	if len(constants.MACs) > 0 {
+		lookupMACs = constants.MACs[:constants.NBSSIDs]
+		jobs <- serialize(lookupMACs)
+	}
+
+	waitSeconds := 5
+	log.Infof("Waiting %v seconds for the workers to finish\n", waitSeconds)
+	time.Sleep(5 * time.Second)
+	for i := 0; i < constants.NWorkers; i++ {
+		done <- true
+	}
+
 }
 
 func RunQueries() {

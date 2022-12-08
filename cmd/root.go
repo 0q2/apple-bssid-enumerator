@@ -71,7 +71,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&constants.SingleResponse, "single", "s", false, "Query WLOC for only single BSSID (no nearby)")
 	rootCmd.PersistentFlags().IntVarP(&constants.NBSSIDs, "nBSSIDs", "N", 100, "Number of BSSIDs to include in each request to WLOC")
 	rootCmd.PersistentFlags().IntVarP(&constants.NWorkers, "nWorkers", "w", 10, "Number of worker threads")
-	rootCmd.PersistentFlags().StringVarP(&constants.OUIFile, "OUIfile", "f", "", "File of OUIs to query for")
+	rootCmd.PersistentFlags().StringVarP(&constants.OUIFile, "infile", "f", "", "File of OUIs or MACs to query for")
 	rootCmd.PersistentFlags().StringVarP(&constants.Outfile, "outfile", "o", "", "File to write results to")
 	rootCmd.PersistentFlags().UintVarP(&constants.NPerOUI, "nPerOUI", "n", 16, "Exponent of number of BSSIDs to search for each OUI (2^x)")
 

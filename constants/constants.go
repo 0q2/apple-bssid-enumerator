@@ -10,6 +10,7 @@ var (
 	OUIFile        string
 	Outfile        string
 	OUIs           []string
+	MACs           []string
 	NWorkers       int
 	Total          int64
 	Finished       int64
