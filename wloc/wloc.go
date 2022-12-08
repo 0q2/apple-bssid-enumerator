@@ -85,7 +85,8 @@ func (wl *Wloc) Query() {
 	body := bytes.NewBuffer(buf)
 	req, err := http.NewRequest("POST", URL, body)
 	if err != nil {
-		log.Fatal(err)
+		log.Errorln("Error in creating the request; skipping:", err)
+		return
 	}
 	req.Host = HOST
 
@@ -106,7 +107,7 @@ func (wl *Wloc) Query() {
 	res, err := client.Do(req)
 	if err != nil {
 		//Something went wrong with the request; log it and return
-		log.Error(err)
+		log.Errorln("Error doing the client request: ", err)
 		return
 	}
 	defer res.Body.Close()
