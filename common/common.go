@@ -163,7 +163,7 @@ func RunMACQueries() {
 
 	//Do the remaining MACs
 	if len(constants.MACs) > 0 {
-		lookupMACs = constants.MACs[:constants.NBSSIDs]
+		lookupMACs = constants.MACs
 		jobs <- serialize(lookupMACs)
 	}
 
